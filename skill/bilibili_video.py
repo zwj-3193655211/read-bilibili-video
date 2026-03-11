@@ -307,6 +307,9 @@ class BilibiliCrawler:
 
             # 获取 cookie
             cookie = await self.get_bilibili_cookie()
+            if not cookie:
+                # 使用备用cookie
+                cookie = "buvid3=C0597D6F-655D-D954-E253-34B57995CDB583348infoc"
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -317,15 +320,15 @@ class BilibiliCrawler:
             async with session.get(page_url, headers=headers, timeout=30) as resp:
                 html = await resp.text()
 
-            # 提取标题
+            # 提取标题 - 参照AstrBot使用title属性
             title_match = re.findall(r'<title[^>]*>([^<]+)</title>', html)
             title = title_match[0].replace("_哔哩哔哩_bilibili", "").strip() if title_match else bv_id
 
             # 清理文件名
             title = re.sub(r'[\\/:*?"<>|]', '_', title)
 
-            # 提取播放信息
-            info_match = re.findall(r'window\.__playinfo__\s*=\s*(.+?)</script>', html)
+            # 提取播放信息 - 简化正则
+            info_match = re.findall(r'window\.__playinfo__=(.*?)</script>', html)
 
             duration = 0
             audio_url = None
@@ -333,14 +336,19 @@ class BilibiliCrawler:
             if info_match:
                 try:
                     data = json.loads(info_match[0])
+                    
+                    # 检查是否是dash格式
                     if 'data' in data and 'dash' in data['data']:
                         audio_streams = data['data']['dash'].get('audio', [])
                         if audio_streams:
                             audio_url = audio_streams[0].get('baseUrl')
-
                         duration = data['data'].get('dash', {}).get('duration', 0)
-                except json.JSONDecodeError:
-                    pass
+                    # 如果不是dash格式，尝试从durl获取（老视频格式）
+                    elif 'data' in data and 'durl' in data['data']:
+                        # flv格式没有独立音频URL，需要其他处理方式
+                        logger.warning("视频为flv格式，无独立音频流")
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(f"解析播放信息失败: {e}")
 
             return {
                 "bv_id": bv_id,
@@ -975,7 +983,19 @@ class VideoAnalyzer:
 
             # 转写音频
             logger.info("转写音频...")
-            text, error = self.recognizer.transcribe(audio_path)
+            
+            # 转换为 FunASR 所需格式 (16kHz mono)
+            logger.info("转换音频格式...")
+            wav_path = self.audio_processor.convert_to_wav(audio_path)
+            if not wav_path:
+                return {
+                    "status": "error",
+                    "error": "audio_convert_failed",
+                    "message": "音频格式转换失败",
+                    "suggestion": "请确保 ffmpeg 可用"
+                }
+            
+            text, error = self.recognizer.transcribe(wav_path)
 
             if not text:
                 return {
