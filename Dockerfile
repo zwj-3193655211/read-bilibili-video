@@ -54,6 +54,8 @@ COPY requirements.txt .
 # ============================================
 # 5. 安装Python依赖
 # ============================================
+# 经验总结 (2026-03-12): torch/torchaudio需要显式安装，避免Docker缓存导致运行时缺少模块
+# 使用--index-url指定PyTorch CPU镜像加速下载
 # 先安装 torch (CPU版，体积小)
 RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 

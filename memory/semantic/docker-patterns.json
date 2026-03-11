@@ -1,0 +1,25 @@
+{
+  "patterns": {
+    "docker_dependency_explicit_install": {
+      "id": "pat-2026-03-12-001",
+      "name": "Docker依赖显式安装模式",
+      "source": "implementation_review",
+      "confidence": 0.95,
+      "applications": 1,
+      "created": "2026-03-12",
+      "category": "docker_deployment",
+      "pattern": "在Dockerfile中显式安装关键依赖，避免依赖缓存导致的问题",
+      "problem": "Python库如torch在requirements.txt中，但Docker镜像构建使用缓存层，导致运行时缺少模块",
+      "solution": {
+        "dockerfile_fix": "RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu",
+        "principle": "关键依赖在Dockerfile中单独安装，确保每次构建都安装"
+      },
+      "quality_rules": [
+        "torch/torchaudio等大型依赖在requirements.txt基础上单独安装",
+        "使用--index-url指定国内镜像加速下载",
+        "修改依赖后需要--no-cache-flag强制重新构建"
+      ],
+      "target_skills": ["docker_deployment", "python_packaging"]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ep-2026-03-12-001",
+  "timestamp": "2026-03-12T01:00:00Z",
+  "skill": "bilibili_video",
+  "situation": "Docker容器运行时报错 'No module named torch' 和 'No module named torchaudio'，导致转录失败",
+  "root_cause": "1) torch虽在requirements.txt但Docker镜像使用缓存层未重新安装 2) torchaudio未显式添加到依赖 3) funasr依赖torch和torchaudio但未自动安装",
+  "solution": "在Dockerfile中显式添加: RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu",
+  "lesson": "Docker构建依赖问题时: 1)需要显式安装关键依赖 2)使用--index-url指定PyTorch CPU镜像加速 3)修改Dockerfile后需重新构建镜像",
+  "related_pattern": "docker_dependency_explicit_install",
+  "user_feedback": {
+    "rating": 10,
+    "comments": "Docker测试成功，转录正常工作"
+  }
+}
