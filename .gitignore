@@ -36,6 +36,10 @@ env/
 # Model files (downloaded at runtime)
 model/
 
+# iFlow skill cache
+.cache/
+.iflow/
+
 # Cache files
 cache/
 
@@ -53,3 +57,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary files
+*.tmp
+*.temp
+*-partial
+
+# Windows
+*.exe
+!ffmpeg.exe  # Keep ffmpeg.exe in repo

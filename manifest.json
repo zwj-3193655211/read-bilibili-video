@@ -1,0 +1,257 @@
+{
+  "name": "readbilibili-video",
+  "version": "1.0.0",
+  "type": "python-skill",
+  "display_name": "Bilibili视频转录",
+  "description": "提取并转录Bilibili视频和本地媒体文件的语音",
+  "long_description": "一个综合性的视频分析工具，可以从Bilibili视频下载音频或从本地视频/音频文件提取音频，然后使用FunASR SenseVoice模型将语音转录为文本。支持多种输入格式，包括BV号、URL、短链接和本地文件。",
+  "author": "iFlow Community",
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/readbilibili-video",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/readbilibili-video.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/readbilibili-video/issues"
+  },
+  "keywords": [
+    "bilibili",
+    "b站",
+    "video",
+    "transcription",
+    "speech-to-text",
+    "asr",
+    "funasr",
+    "audio",
+    "iflow",
+    "skill"
+  ],
+  "categories": [
+    "media-processing",
+    "ai-ml",
+    "productivity"
+  ],
+  "compatibility": {
+    "python": ">=3.8,<3.13",
+    "iflow_cli": ">=1.0.0",
+    "platforms": ["windows", "linux", "macos"]
+  },
+  "requirements": {
+    "python_version": ">=3.8,<3.13",
+    "disk_space": "~1GB for models",
+    "memory": "~2GB RAM recommended",
+    "network": true,
+    "system_tools": ["ffmpeg (optional for local videos)"]
+  },
+  "entry_points": {
+    "skill": "skill.py",
+    "main_function": "run",
+    "cli_entry": "skill.py",
+    "info": "info",
+    "status": "check_status",
+    "clear_cache": "clear_cache",
+    "initialize": "initialize_models"
+  },
+  "dependencies": {
+    "python": {
+      "aiohttp": ">=3.8.0",
+      "requests": ">=2.28.0",
+      "funasr": ">=1.0.0",
+      "modelscope": ">=1.9.0"
+    },
+    "optional": {
+      "librosa": ">=0.10.0",
+      "soundfile": ">=0.12.0"
+    },
+    "system": {
+      "ffmpeg": "optional for local video processing"
+    }
+  },
+  "configuration": {
+    "config_file": "~/.iflow/skills/readbilibili-video/config.json",
+    "cache_directory": "~/.iflow/skills/readbilibili-video/cache",
+    "defaults": {
+      "max_duration_minutes": 70,
+      "model": "sensevoice",
+      "auto_clear_days": 7
+    },
+    "schema": {
+      "max_duration_minutes": {
+        "type": "integer",
+        "description": "Maximum video duration in minutes",
+        "minimum": 1,
+        "maximum": 600,
+        "default": 70
+      },
+      "model": {
+        "type": "string",
+        "description": "ASR model to use",
+        "enum": ["sensevoice"],
+        "default": "sensevoice"
+      }
+    }
+  },
+  "supported_formats": {
+    "bilibili": {
+      "bv_number": true,
+      "full_url": true,
+      "mobile_url": true,
+      "short_link": true,
+      "mixed_text": true
+    },
+    "local_media": {
+      "video": ["mp4", "flv", "avi", "mkv", "mov", "wmv", "webm", "m4v", "mpeg", "mpg"],
+      "audio": ["mp3", "wav", "m4a", "aac", "flac", "ogg", "wma", "aiff"]
+    }
+  },
+  "models": {
+    "vad": {
+      "name": "speech_fsmn_vad_zh-cn-16k-common-pytorch",
+      "source": "modelscope",
+      "size": "~100MB",
+      "description": "Voice Activity Detection"
+    },
+    "asr": {
+      "name": "SenseVoiceSmall",
+      "source": "modelscope",
+      "size": "~900MB",
+      "description": "Speech Recognition (Chinese, auto-detect)"
+    }
+  },
+  "api": {
+    "functions": [
+      {
+        "name": "run",
+        "description": "主入口函数 - 转录视频/音频",
+        "parameters": {
+          "input_text": {
+            "type": "string",
+            "description": "Bilibili URL, BV号, 或本地文件路径"
+          },
+          "max_duration": {
+            "type": "integer",
+            "description": "覆盖最大时长（分钟）",
+            "optional": true
+          }
+        },
+        "returns": {
+          "status": "success|error",
+          "transcription": "text",
+          "transcription_path": "file_path",
+          "error": "error_code"
+        }
+      },
+      {
+        "name": "info",
+        "description": "获取技能元数据信息",
+        "returns": {
+          "status": "success",
+          "skill": "object"
+        }
+      },
+      {
+        "name": "check_status",
+        "description": "检查技能和模型状态",
+        "returns": {
+          "status": "ready|need_init",
+          "models": "dict",
+          "config": "dict"
+        }
+      },
+      {
+        "name": "clear_cache",
+        "description": "清除所有缓存文件",
+        "returns": {
+          "status": "success",
+          "cleared_files": "int",
+          "freed_mb": "float"
+        }
+      },
+      {
+        "name": "initialize_models",
+        "description": "下载所需模型",
+        "returns": {
+          "status": "success|error",
+          "message": "string"
+        }
+      }
+    ]
+  },
+  "cli_commands": [
+    {
+      "command": "<input>",
+      "description": "Bilibili URL, BV号, 或本地文件路径"
+    },
+    {
+      "command": "--init",
+      "description": "下载所需模型"
+    },
+    {
+      "command": "--status",
+      "description": "检查技能状态"
+    },
+    {
+      "command": "--clear-cache",
+      "description": "清除缓存文件"
+    },
+    {
+      "command": "--skill-info",
+      "description": "显示技能元数据"
+    }
+  ],
+  "limitations": [
+    "最大视频时长: 70分钟 (可配置)",
+    "会员视频可能无法访问",
+    "地区限制视频可能失败",
+    "本地视频处理需要ffmpeg",
+    "初始模型下载约1GB",
+    "需要网络连接用于Bilibili视频"
+  ],
+  "performance": {
+    "transcription_speed": "~1-2x实时 (CPU), ~3-5x实时 (GPU)",
+    "cache_hit": "无需重新下载或转录",
+    "model_loading": "首次运行约10-30秒"
+  },
+  "installation": {
+    "method": "git",
+    "commands": {
+      "clone": "git clone https://github.com/yourusername/readbilibili-video.git",
+      "setup_windows": "setup_env.bat",
+      "setup_unix": "chmod +x setup_env.sh && ./setup_env.sh",
+      "init": "python skill.py --init"
+    }
+  },
+  "tags_for_search": [
+    "B站", "bilibili", "视频分析", "语音识别", "字幕生成",
+    "speech recognition", "video transcription", "ASR", "FunASR",
+    "audio extraction", "video summary", "content analysis"
+  ],
+  "iflow_integration": {
+    "skill_file": "skill.py",
+    "trigger_keywords": [
+      "分析视频",
+      "转录视频",
+      "提取字幕",
+      "视频转文字",
+      "BV号",
+      "b23.tv",
+      "bilibili.com"
+    ],
+    "file_extensions": [
+      ".mp4",
+      ".mkv",
+      ".avi",
+      ".mp3",
+      ".wav",
+      ".m4a"
+    ],
+    "agent_compatibility": {
+      "iflow": true,
+      "claude": true,
+      "openai_functions": true,
+      "langchain": true,
+      "custom_agent": true
+    }
+  }
+}
