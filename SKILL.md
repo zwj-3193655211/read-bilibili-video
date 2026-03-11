@@ -58,6 +58,7 @@ python skill.py "C:\\Videos\\lecture.mp4"
 | 视频输入识别 | 自动识别Bilibili链接或本地视频文件 |
 | 音频提取 | 从Bilibili下载或从本地视频提取音频 |
 | 语音转录 | 使用FunASR SenseVoice模型进行准确转录 |
+| AI总结 | 使用Ollama本地模型总结转录内容（可选） |
 | 缓存机制 | 缓存音频和转录结果以加速后续处理 |
 | 混合文本解析 | 从混合文本中提取Bilibili链接 |
 

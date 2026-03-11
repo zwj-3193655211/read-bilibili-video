@@ -774,8 +774,13 @@ class VideoAnalyzer:
         self.audio_processor = AudioProcessor()
         self.recognizer = SpeechRecognizer(self.skill_dir)
 
-    async def analyze(self, input_text: str) -> Dict[str, Any]:
-        """分析视频或音频"""
+    async def analyze(self, input_text: str, summarize: bool = False) -> Dict[str, Any]:
+        """分析视频或音频
+        
+        Args:
+            input_text: 输入文本（URL、BV号或本地路径）
+            summarize: 是否返回转录文本供 Agent 总结
+        """
         start_time = datetime.now()
 
         # 1. 识别输入类型
@@ -791,13 +796,13 @@ class VideoAnalyzer:
 
         # 2. 根据类型处理
         if input_info["type"] == "bilibili":
-            return await self._analyze_bilibili(input_info["url"], start_time)
+            return await self._analyze_bilibili(input_info["url"], start_time, summarize)
         elif input_info["type"] == "local":
-            return await self._analyze_local(input_info["path"], start_time)
+            return await self._analyze_local(input_info["path"], start_time, summarize)
         elif input_info["type"] == "audio":
-            return await self._analyze_audio(input_info["path"], start_time)
+            return await self._analyze_audio(input_info["path"], start_time, summarize)
 
-    async def _analyze_bilibili(self, url: str, start_time: datetime) -> Dict[str, Any]:
+    async def _analyze_bilibili(self, url: str, start_time: datetime, summarize: bool = False) -> Dict[str, Any]:
         """分析 B 站视频"""
         logger.info(f"获取视频信息：{url}")
         video_info = await self.bilibili_crawler.get_video_info(url)
@@ -834,9 +839,9 @@ class VideoAnalyzer:
                 "suggestion": "请检查网络连接或视频是否可访问"
             }
 
-        return await self._process_audio(video_info, audio_path, start_time)
+        return await self._process_audio(video_info, audio_path, start_time, summarize)
 
-    async def _analyze_local(self, video_path: str, start_time: datetime) -> Dict[str, Any]:
+    async def _analyze_local(self, video_path: str, start_time: datetime, summarize: bool = False) -> Dict[str, Any]:
         """分析本地视频"""
         logger.info(f"处理本地视频：{video_path}")
 
@@ -869,7 +874,7 @@ class VideoAnalyzer:
                 "suggestion": "在配置中调整 max_duration_minutes"
             }
 
-        return await self._process_audio(video_info, audio_path, start_time)
+        return await self._process_audio(video_info, audio_path, start_time, summarize)
 
     async def _ensure_audio_format(self, audio_path: str) -> str:
         """检测并转换音频格式，确保扩展名与实际格式匹配"""
@@ -934,7 +939,7 @@ class VideoAnalyzer:
             logger.warning(f"音频格式检测失败: {e}")
             return audio_path
 
-    async def _analyze_audio(self, audio_path: str, start_time: datetime) -> Dict[str, Any]:
+    async def _analyze_audio(self, audio_path: str, start_time: datetime, summarize: bool = False) -> Dict[str, Any]:
         """分析本地音频"""
         logger.info(f"处理本地音频：{audio_path}")
 
@@ -962,10 +967,10 @@ class VideoAnalyzer:
             "duration": duration
         }
 
-        return await self._process_audio(video_info, audio_path, start_time)
+        return await self._process_audio(video_info, audio_path, start_time, summarize)
 
     async def _process_audio(self, video_info: Dict[str, Any], audio_path: str,
-                             start_time: datetime) -> Dict[str, Any]:
+                             start_time: datetime, summarize: bool = False) -> Dict[str, Any]:
         """处理音频（转写）"""
         try:
             # 检查模型
@@ -1005,17 +1010,24 @@ class VideoAnalyzer:
                     "suggestion": "请确保音频格式正确"
                 }
 
-            # 保存转写结果
-            cache_hash = get_cache_hash(video_info["url"] or video_info["bv_id"])
+            # 保存转写结果（以视频标题命名）
+            title = video_info["title"]
+            # 清理标题中的非法文件名字符
+            safe_title = re.sub(r'[<>:"/\\|?*]', '_', title)
             text_dir = Path(self.config["cache_dir"]) / "text"
-            txt_path = text_dir / f"{cache_hash}.txt"
+            txt_path = text_dir / f"{safe_title}.txt"
             with open(txt_path, 'w', encoding='utf-8') as f:
                 f.write(text)
+
+            # 如果用户指定了总结需求，进行总结
+            summary = None
+            if summarize:
+                summary = self.summarize_text(text)
 
             result = {
                 "status": "success",
                 "type": "bilibili" if video_info["bv_id"].startswith("BV") else "local",
-                "title": video_info["title"],
+                "title": title,
                 "bv_id": video_info["bv_id"],
                 "url": video_info["url"],
                 "duration": format_duration(video_info["duration"]),
@@ -1023,10 +1035,19 @@ class VideoAnalyzer:
                 "transcription_path": str(txt_path),
                 "processing_time": str(datetime.now() - start_time)
             }
+            
+            if summary:
+                result["summary"] = summary
 
             return result
         finally:
             await self.bilibili_crawler.close()
+
+    def summarize_text(self, text: str) -> Optional[str]:
+        """返回需要总结的标记，由 iFlow Agent 调用 Ollama 总结"""
+        # 返回特殊标记，通知 iFlow Agent 需要总结
+        # Agent 会自动调用其他技能（如 Ollama）进行总结
+        return "__NEED_SUMMARY__"
 
     def check_status(self) -> Dict[str, Any]:
         """检查状态"""
@@ -1073,6 +1094,7 @@ def main():
     parser.add_argument("--status", action="store_true", help="检查状态")
     parser.add_argument("--clear-cache", action="store_true", help="清理所有缓存")
     parser.add_argument("--init", action="store_true", help="初始化环境（下载模型）")
+    parser.add_argument("--summarize", "-s", action="store_true", help="转录后返回文本供 Agent 进行 AI 总结")
 
     args = parser.parse_args()
 
@@ -1099,7 +1121,7 @@ def main():
         return
 
     # 运行分析
-    result = asyncio.run(analyzer.analyze(args.input))
+    result = asyncio.run(analyzer.analyze(args.input, summarize=args.summarize))
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

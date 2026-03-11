@@ -54,6 +54,10 @@ COPY requirements.txt .
 # ============================================
 # 5. 安装Python依赖
 # ============================================
+# 先安装 torch (CPU版，体积小)
+RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# 安装其他依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ============================================
