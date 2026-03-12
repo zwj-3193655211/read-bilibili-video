@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  bilibili-video-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bilibili-video-api:latest
+    container_name: bilibili-video-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - bilibili-cache:/root/.cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  bilibili-cache:
+    driver: local

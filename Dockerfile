@@ -25,6 +25,12 @@
 # ============================================
 FROM python:3.10-slim
 
+# 镜像元数据
+LABEL maintainer="iFlow Team"
+LABEL version="1.0.0"
+LABEL description="Bilibili Video Transcription API using FunASR SenseVoice"
+LABEL homepage="https://github.com/zwj-3193655211/read-bilibili-video"
+
 # ============================================
 # 1. 安装系统依赖
 # ============================================

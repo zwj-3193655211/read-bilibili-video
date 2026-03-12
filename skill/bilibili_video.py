@@ -989,18 +989,8 @@ class VideoAnalyzer:
             # 转写音频
             logger.info("转写音频...")
             
-            # 转换为 FunASR 所需格式 (16kHz mono)
-            logger.info("转换音频格式...")
-            wav_path = self.audio_processor.convert_to_wav(audio_path)
-            if not wav_path:
-                return {
-                    "status": "error",
-                    "error": "audio_convert_failed",
-                    "message": "音频格式转换失败",
-                    "suggestion": "请确保 ffmpeg 可用"
-                }
-            
-            text, error = self.recognizer.transcribe(wav_path)
+            # FunASR 支持直接输入 m4a, mp3, wav 等常见格式，无需预先转换
+            text, error = self.recognizer.transcribe(audio_path)
 
             if not text:
                 return {

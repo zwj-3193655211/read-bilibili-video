@@ -92,7 +92,8 @@ class JobQueue:
     
     def get_job(self, job_id: str) -> Optional[Job]:
         """获取任务"""
-        return self.jobs.get(job_id)
+        with self.lock:
+            return self.jobs.get(job_id)
     
     def update_job(self, job_id: str, **kwargs) -> bool:
         """更新任务"""
@@ -130,10 +131,11 @@ def process_job(job: Job) -> None:
     """
     try:
         # 更新状态为处理中
-        job.status = JobStatus.PROCESSING
-        job.progress = 10
-        job.message = "正在处理任务..."
-        job.updated_at = datetime.now()
+        with job_queue.lock:
+            job.status = JobStatus.PROCESSING
+            job.progress = 10
+            job.message = "正在处理任务..."
+            job.updated_at = datetime.now()
         
         # 导入bilibili_video模块
         from skill.bilibili_video import VideoAnalyzer, get_config
@@ -146,49 +148,55 @@ def process_job(job: Job) -> None:
         # 根据输入类型调用不同的处理方式
         if job.input_type == InputType.BILIBILI:
             # Bilibili视频
-            job.progress = 20
-            job.message = "正在下载视频..."
-            job.updated_at = datetime.now()
+            with job_queue.lock:
+                job.progress = 20
+                job.message = "正在下载视频..."
+                job.updated_at = datetime.now()
             
             # 使用异步方式调用
             result = asyncio.run(analyzer.analyze(job.input))
             
         elif job.input_type == InputType.LOCAL:
             # 本地文件
-            job.progress = 20
-            job.message = "正在提取音频..."
-            job.updated_at = datetime.now()
+            with job_queue.lock:
+                job.progress = 20
+                job.message = "正在提取音频..."
+                job.updated_at = datetime.now()
             
             # 本地文件直接调用转录
             result = asyncio.run(analyzer.analyze(job.local_file_path))
         
         # 处理完成
         if result.get("status") == "success":
-            job.status = JobStatus.COMPLETED
-            job.progress = 100
-            job.message = "转录完成"
-            
-            # 提取结果
-            job.title = result.get("title", "未知标题")
-            job.duration = result.get("duration", "未知时长")
-            job.result_text = result.get("transcription", result.get("text", ""))
-            
-            # 保存结果到文件
-            job.result_path = save_result(job)
+            with job_queue.lock:
+                job.status = JobStatus.COMPLETED
+                job.progress = 100
+                job.message = "转录完成"
+                
+                # 提取结果
+                job.title = result.get("title", "未知标题")
+                job.duration = result.get("duration", "未知时长")
+                job.result_text = result.get("transcription", result.get("text", ""))
+                
+                # 保存结果到文件
+                job.result_path = save_result(job)
             
         else:
             # 处理失败
-            job.status = JobStatus.FAILED
-            job.message = "转录失败"
-            job.error = result.get("message", result.get("error", "未知错误"))
+            with job_queue.lock:
+                job.status = JobStatus.FAILED
+                job.message = "转录失败"
+                job.error = result.get("message", result.get("error", "未知错误"))
         
     except Exception as e:
-        job.status = JobStatus.FAILED
-        job.message = "处理失败"
-        job.error = str(e)
+        with job_queue.lock:
+            job.status = JobStatus.FAILED
+            job.message = "处理失败"
+            job.error = str(e)
     
     finally:
-        job.updated_at = datetime.now()
+        with job_queue.lock:
+            job.updated_at = datetime.now()
 
 
 def save_result(job: Job) -> str:
